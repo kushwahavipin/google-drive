@@ -12,7 +12,7 @@
 - Responsive Design: Works across all screen sizes (desktop, tablet, mobile).
 # Tech Stack
 - Frontend:
--  React
+--  React
 -  HTML5, CSS3
 -  JavaScript (ES6+)
 - Backend:
