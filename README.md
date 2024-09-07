@@ -16,9 +16,9 @@
 # Getting Started
 - Follow these steps to set up and run the project locally.
 # Prerequisites
-## Make sure you have the following installed:
--Node.js: [Download and install Node.js](https://nodejs.org/en)
--npm: Comes with Node.js. Run `npm -v` to check if it’s installed.
+-- Make sure you have the following installed:
+- Node.js: [Download and install Node.js](https://nodejs.org/en)
+- npm: Comes with Node.js. Run `npm -v` to check if it’s installed.
 Installation
 Clone the repository:
 bash
