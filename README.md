@@ -11,20 +11,14 @@
 - Navigation: Navigate through different folders easily, mimicking Google Drive's UI.
 - Responsive Design: Works across all screen sizes (desktop, tablet, mobile).
 # Tech Stack
-- Frontend:
-  -React
-  -HTML5, CSS3
-  -JavaScript (ES6+)
-- Backend:
-  -Firebase (or custom backend depending on the implementation)
+- Frontend:React, HTML5, CSS3, JavaScript (ES6+)
+- Backend: Firebase (or custom backend depending on the implementation)
 # Getting Started
 - Follow these steps to set up and run the project locally.
-
 # Prerequisites
-- Make sure you have the following installed:
-
-Node.js: Download and install Node.js
-npm: Comes with Node.js. Run npm -v to check if it’s installed.
+## Make sure you have the following installed:
+-Node.js: [Download and install Node.js](https://nodejs.org/en)
+-npm: Comes with Node.js. Run `npm -v` to check if it’s installed.
 Installation
 Clone the repository:
 bash
