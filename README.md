@@ -12,11 +12,11 @@
 - Responsive Design: Works across all screen sizes (desktop, tablet, mobile).
 # Tech Stack
 - Frontend:
---  React
--  HTML5, CSS3
--  JavaScript (ES6+)
+  -React
+  -HTML5, CSS3
+  -JavaScript (ES6+)
 - Backend:
-Firebase (or custom backend depending on the implementation)
+  -Firebase (or custom backend depending on the implementation)
 # Getting Started
 - Follow these steps to set up and run the project locally.
 
