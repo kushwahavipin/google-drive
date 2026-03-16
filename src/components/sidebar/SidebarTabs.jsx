@@ -8,16 +8,15 @@ import {
   DeleteOutlineIcon,
   CloudQueueIcons,
   HelpIcon,
-  CloseButton,
 } from "../common/SvgIcons";
 import { Modal } from "@mui/material";
 import { NavLink } from "react-router-dom";
 import { getFilesForUser } from "../common/firebaseApi";
-import { auth } from "../../firebase";
 import { changeBytes } from "../common/common";
 import HelpModal from "../common/Modal";
 import { useDispatch, useSelector } from "react-redux";
 import { selectHelpModal, setHelpModal } from "../../store/HelpSlice";
+import { selectUserId } from "../../store/UserSlice";
 import Lottie from "react-lottie-player";
 import closeJson from "../lottie/closeLottie.json";
 // SidebarTabs component
@@ -25,6 +24,7 @@ const SidebarTabs = () => {
   // State variables
   const openHelp = useSelector(selectHelpModal);
   const dispatch = useDispatch();
+  const userId = useSelector(selectUserId);
   const [files, setFiles] = useState([]);
   const [storage, setStorage] = useState("");
   const [size, setSize] = useState("");
@@ -32,23 +32,12 @@ const SidebarTabs = () => {
 
   // Fetch user files on component mount
   useEffect(() => {
-    const fetchData = async () => {
-      const user = auth.currentUser;
-      if (user) {
-        // Get user files and set them to state
-        const unsubscribeFiles = await getFilesForUser(user.uid, (newFiles) => {
-          setFiles(newFiles);
-        });
+    const unsubscribeFiles = getFilesForUser(userId, (newFiles) => {
+      setFiles(newFiles);
+    });
 
-        // Cleanup the user subscription when the component unmounts
-        return () => {
-          unsubscribeFiles();
-        };
-      }
-    };
-
-    fetchData();
-  }, []);
+    return () => unsubscribeFiles();
+  }, [userId]);
 
   // Calculate and update storage size whenever files change
   useEffect(() => {

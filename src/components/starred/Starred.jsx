@@ -2,35 +2,25 @@ import React, { Suspense, lazy, useEffect, useState } from "react";
 import styled from "styled-components";
 import PageHeader from "../common/PageHeader";
 import { getFilesForUser } from "../common/firebaseApi";
-import { auth } from "../../firebase";
 import LoaderContainer from "../loaders/LoaderContainer";
 import { delayInRender } from "../common/common";
+import { useSelector } from "react-redux";
+import { selectUserId } from "../../store/UserSlice";
 const FilesList = lazy(() => delayInRender(import("../common/FilesList")));
 
 // Starred component displays files marked as starred for quick access
 const Starred = () => {
+  const userId = useSelector(selectUserId);
   const [starredFiles, setStarredFiles] = useState([]);
   const [files, setFiles] = useState([]);
 
   useEffect(() => {
-    // Fetch files for the current user
-    const fetchData = async () => {
-      const user = auth.currentUser;
-      if (user) {
-        // Subscribe to file updates and set them in state
-        const unsubscribeFiles = await getFilesForUser(user.uid, (newFiles) => {
-          setFiles(newFiles);
-        });
-        // Cleanup the user subscription when the component unmounts
-        return () => {
-          unsubscribeFiles();
-        };
-      }
-    };
+    const unsubscribeFiles = getFilesForUser(userId, (newFiles) => {
+      setFiles(newFiles);
+    });
 
-    // Fetch data when the component mounts
-    fetchData();
-  }, []);
+    return () => unsubscribeFiles();
+  }, [userId]);
 
   useEffect(() => {
     // Filter and set files that are marked as starred

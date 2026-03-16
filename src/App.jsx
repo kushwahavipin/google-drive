@@ -1,7 +1,8 @@
 import React from "react";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { Navigate, createBrowserRouter, RouterProvider } from "react-router-dom";
 import Layout from "./components/Layout";
 import Login from "./components/login/Login";
+import Signup from "./components/signup/Signup";
 import ErrorPage from "./components/ErrorPage";
 import { store } from "./store/Store";
 import { Provider } from "react-redux";
@@ -25,7 +26,15 @@ function App() {
       children: [
         {
           path: "/",
+          element: <Navigate to="/login" replace />,
+        },
+        {
+          path: "/login",
           element: <Login />,
+        },
+        {
+          path: "/signup",
+          element: <Signup />,
         },
       ],
     },

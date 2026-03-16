@@ -2,22 +2,22 @@
 
 import React, { useEffect, useState } from "react";
 import styled from "styled-components";
-import { auth, provider } from "../../firebase";
-import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import { useDispatch, useSelector } from "react-redux";
 import {
+  selectUserId,
   selectUserName,
   selectUserPhoto,
   setSignOutState,
   setUserLoginDetails,
 } from "../../store/UserSlice";
 import { selectSidebarBool, setSidebarBool } from "../../store/BoolSlice";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import LogoWrapperComponent from "./LogoWrapper";
 import SearchBar from "./SearchBar";
 import LeftIcons from "./LeftIcons";
 import ProfileSection from "./ProfileSection";
 import { SearchIcons } from "../common/SvgIcons";
+import { getSessionUser, logoutSession } from "../../services/auth";
 
 /**
  * Header component containing the application header with user authentication, search bar, and profile section.
@@ -25,37 +25,40 @@ import { SearchIcons } from "../common/SvgIcons";
  */
 const Header = () => {
   const dispatch = useDispatch();
+  const userId = useSelector(selectUserId);
   const userName = useSelector(selectUserName);
   const userPhoto = useSelector(selectUserPhoto);
   const sidebarBool = useSelector(selectSidebarBool);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setQuery] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Check if the user is authenticated
+  // Restore local session when app reloads
   useEffect(() => {
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUser(user);
-        navigate("/home");
+    if (!userName) {
+      const sessionUser = getSessionUser();
+      if (sessionUser) {
+        setUser(sessionUser);
       }
-    });
+    }
   }, [userName]);
 
-  // Handle user authentication
+  useEffect(() => {
+    if (userId && ["/", "/login", "/signup"].includes(location.pathname)) {
+      navigate("/home");
+    }
+  }, [userId, location.pathname, navigate]);
+
+  // Handle user login/logout
   const handleAuth = async () => {
     if (!userName) {
-      try {
-        const result = await signInWithPopup(auth, provider);
-        setUser(result.user);
-      } catch (error) {
-        console.error(error.message);
-      }
+      navigate("/login");
     } else if (userName) {
       try {
-        await signOut(auth);
+        logoutSession();
         dispatch(setSignOutState());
-        navigate("/");
+        navigate("/login");
       } catch (error) {
         console.log("Error signing out: ", error.message);
       }
@@ -66,8 +69,10 @@ const Header = () => {
   const setUser = (user) => {
     dispatch(
       setUserLoginDetails({
-        name: user.displayName,
-        photo: user.photoURL,
+        id: String(user.id),
+        name: user.name,
+        email: user.email || "",
+        photo: user.photo,
       })
     );
   };

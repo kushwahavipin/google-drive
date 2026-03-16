@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import styled from "styled-components";
+import FolderOutlinedIcon from "@mui/icons-material/FolderOutlined";
 import {
   ArrowDownIcon,
   MoreOptionsIcon,
@@ -25,16 +26,57 @@ import {
 import { handleStarred } from "../common/firebaseApi";
 import { toast } from "react-toastify";
 import LottieImage from "../common/LottieImage";
+import { API_BASE_URL } from "../../services/api";
 
 // MainData component renders the main data grid with file information and options
 const MainData = ({
+  folders,
   files,
+  onOpenFolder,
   handleOptionsClick,
   optionsVisible,
   handleDelete,
+  handleDeleteFolder,
+  userId,
 }) => {
   const [showShareIcons, setShowShareIcons] = useState(false);
   const optionsMenuRef = useRef(null);
+
+  const toSeconds = (value) => {
+    if (!value) {
+      return null;
+    }
+
+    if (typeof value === "number") {
+      return value;
+    }
+
+    const parsed = new Date(value).getTime();
+    if (Number.isNaN(parsed)) {
+      return null;
+    }
+
+    return Math.floor(parsed / 1000);
+  };
+
+  const formatDateValue = (value) => {
+    const seconds = toSeconds(value);
+    if (!seconds) {
+      return "--";
+    }
+    return convertDates(seconds);
+  };
+
+  const getFolderLink = (folderId) =>
+    `${window.location.origin}/home?folder=${encodeURIComponent(folderId)}`;
+
+  const getFolderZipDownloadLink = (folderId) =>
+    `${API_BASE_URL}/api/folders/${encodeURIComponent(folderId)}/download?userId=${encodeURIComponent(userId)}`;
+
+  const handleCopyLink = (url) => {
+    navigator.clipboard.writeText(url);
+    toast.success("Link Copied");
+  };
 
   // Handle click on the "Share" button to toggle share icons
   const handleShareClick = () => {
@@ -69,7 +111,7 @@ const MainData = ({
   return (
     <div>
       {/* Header row for the data list */}
-      {files.length > 0 && (
+      {(files.length > 0 || folders.length > 0) && (
         <DataListRow>
           <div>
             <b>
@@ -87,6 +129,90 @@ const MainData = ({
           </div>
         </DataListRow>
       )}
+
+      {folders.map((folder) => (
+        <DataListRow key={`folder-${folder.id}`}>
+          <div>
+            <FolderButton onClick={() => onOpenFolder(folder.id)}>
+              <FolderOutlinedIcon />
+              <span title={folder.name}>{folder.name}</span>
+            </FolderButton>
+          </div>
+          <div className="fileSize">{changeBytes(folder.totalSize || 0)}</div>
+          <div className="modified">
+            {formatDateValue(folder.lastModified || folder.createdAt)}
+          </div>
+          <div>
+            <OptionsContainer
+              className="optionsContainer"
+              title="Options"
+              onClick={() => handleOptionsClick(`folder-${folder.id}`)}
+            >
+              <MoreOptionsIcon />
+            </OptionsContainer>
+            {optionsVisible === `folder-${folder.id}` && (
+              <OptionsMenu ref={optionsMenuRef}>
+                <span>
+                  <a href={getFolderZipDownloadLink(folder.id)}>
+                    <DownloadIcon />
+                    {" Download"}
+                  </a>
+                </span>
+                <span onClick={() => handleCopyLink(getFolderLink(folder.id))}>
+                  <CopyIcon />
+                  {" Copy Link"}
+                </span>
+                <ShareButton className="shareButton" onClick={handleShareClick}>
+                  <ShareIcon />
+                  {" Share"}
+                  <span className={showShareIcons ? "show" : ""}>
+                    <EmailShareButton
+                      url={getFolderLink(folder.id)}
+                      subject={`This is ${folder.name} folder link`}
+                    >
+                      <EmailIcon size={30} round={true} />
+                    </EmailShareButton>
+
+                    <FacebookShareButton
+                      url={getFolderLink(folder.id)}
+                      hashtag={folder.name}
+                    >
+                      <FacebookIcon size={30} round={true} />
+                    </FacebookShareButton>
+
+                    <LinkedinShareButton
+                      url={getFolderLink(folder.id)}
+                      title={`This is ${folder.name} folder link`}
+                    >
+                      <LinkedinIcon size={30} round={true} />
+                    </LinkedinShareButton>
+
+                    <WhatsappShareButton
+                      url={getFolderLink(folder.id)}
+                      title={`This is ${folder.name} folder link`}
+                    >
+                      <WhatsappIcon size={30} round={true} />
+                    </WhatsappShareButton>
+                  </span>
+                </ShareButton>
+                <span onClick={() => handleDeleteFolder(folder)}>
+                  <button>
+                    <DeleteIcon />
+                    {" Delete"}
+                  </button>
+                </span>
+                <span className="uploaded">
+                  {formatDateValue(folder.lastModified || folder.createdAt)}
+                </span>
+                <span className="fileSize">
+                  {"Size: "}
+                  {changeBytes(folder.totalSize || 0)}
+                </span>
+              </OptionsMenu>
+            )}
+          </div>
+        </DataListRow>
+      ))}
 
       {/* Render each file in the data list */}
       {files.length > 0 ? (
@@ -135,8 +261,7 @@ const MainData = ({
                   <span
                     onClick={() => {
                       // Copy file URL to clipboard
-                      navigator.clipboard.writeText(file.data.fileURL);
-                      toast.success("Link Copied");
+                      handleCopyLink(file.data.fileURL);
                     }}
                   >
                     <CopyIcon />
@@ -201,14 +326,14 @@ const MainData = ({
             </div>
           </DataListRow>
         ))
-      ) : (
+      ) : folders.length === 0 ? (
         // Render a Lottie animation if no files are available
         <LottieImage
           imagePath={"/homePage.svg"}
           text1={"A place for all of your files"}
           text2={"Upload your files here & use the 'New' button to upload"}
         />
-      )}
+      ) : null}
     </div>
   );
 };
@@ -394,6 +519,23 @@ const ShareButton = styled.span`
     span {
       background-color: transparent;
     }
+  }
+`;
+
+const FolderButton = styled.button`
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: #3f51b5;
+  font-weight: 600;
+
+  span {
+    max-width: 20ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 `;
 
