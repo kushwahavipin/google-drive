@@ -1,15 +1,16 @@
 // Login.js
 
-// import React from "react";
+import { useState } from "react";
 import styled from "styled-components";
 import FavoriteIcon from "@mui/icons-material/Favorite";
-import { auth, provider } from "../../firebase";
-import { signInWithPopup } from "firebase/auth";
 import { useDispatch } from "react-redux";
 import { setUserLoginDetails } from "../../store/UserSlice";
 import { motion } from "framer-motion";
 import Lottie from "react-lottie-player";
 import lottieJson from "../lottie/homePageLottie.json";
+import { Link, useNavigate } from "react-router-dom";
+import { login } from "../../services/auth";
+import { toast } from "react-toastify";
 
 /**
  * Login component handles user authentication using Google.
@@ -17,18 +18,36 @@ import lottieJson from "../lottie/homePageLottie.json";
  */
 const Login = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   /**
    * Handles user authentication with Google.
    * On successful authentication, sets user details in Redux state.
    * @async
    */
-  const handleAuth = async () => {
+  const handleAuth = async (e) => {
+    e.preventDefault();
     try {
-      const result = await signInWithPopup(auth, provider);
-      setUser(result.user);
+      if (!email || !password) {
+        toast.error("Email and password are required");
+        return;
+      }
+
+      setSubmitting(true);
+      const user = await login({
+        email: email.trim(),
+        password,
+      });
+
+      setUser(user);
+      navigate("/home");
     } catch (error) {
-      console.error(error.message);
+      toast.error(error.message || "Login failed");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -39,9 +58,10 @@ const Login = () => {
   const setUser = (user) => {
     dispatch(
       setUserLoginDetails({
-        name: user.displayName,
+        id: String(user.id),
+        name: user.name,
         email: user.email,
-        photo: user.photoURL,
+        photo: user.photo,
       })
     );
   };
@@ -61,7 +81,24 @@ const Login = () => {
           style={{ width: 120, height: 120 }}
         />
         <h3>Safe Drive</h3>
-        <Button onClick={handleAuth}>Get Started</Button>
+        <Form onSubmit={handleAuth}>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <Button type="submit" disabled={submitting}>
+            {submitting ? "Logging in..." : "Login"}
+          </Button>
+        </Form>
+        <AuthLink to="/signup">New here? Create an account</AuthLink>
         <div className="text">
           <p>
             A cloud-based storage service that enables users to store and access
@@ -128,7 +165,7 @@ const Box = styled(motion.div)`
   }
 
   .text {
-    margin-top: auto;
+    margin-top: 1rem;
     p {
       text-align: center;
       font-weight: 600;
@@ -148,6 +185,34 @@ const Box = styled(motion.div)`
   }
 `;
 
+const Form = styled.form`
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  input {
+    height: 48px;
+    padding: 0 14px;
+    border: 1px solid #d0d0d0;
+    border-radius: 12px;
+    font-size: 14px;
+    outline: none;
+  }
+
+  input:focus {
+    border-color: #3f86ed;
+  }
+`;
+
+const AuthLink = styled(Link)`
+  margin-top: 10px;
+  font-size: 14px;
+  color: #3f86ed;
+  font-weight: 600;
+`;
+
 const ImageContainer = styled(motion.div)`
   flex: 1;
   min-width: 280px;
@@ -163,7 +228,7 @@ const ImageContainer = styled(motion.div)`
 const Button = styled.button`
   appearance: button;
   width: 100%;
-  max-width: 280px;
+  max-width: 320px;
   font-size: 16px;
   font-weight: 600;
   color: #fff;
@@ -192,6 +257,11 @@ const Button = styled.button`
   }
   &:active {
     border-width: 4px 0 0;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
   }
 `;
 

@@ -2,33 +2,21 @@ import React, { Suspense, lazy, useEffect, useState } from "react";
 import styled from "styled-components";
 import PageHeader from "../common/PageHeader";
 import { getTrashFiles } from "../common/firebaseApi";
-import { auth } from "../../firebase";
-import { onAuthStateChanged } from "firebase/auth";
 import LoaderContainer from "../loaders/LoaderContainer";
 import { delayInRender } from "../common/common";
+import { useSelector } from "react-redux";
+import { selectUserId } from "../../store/UserSlice";
 const FilesList = lazy(() => delayInRender(import("../common/FilesList")));
 
 // Trash component displays files in the user's trash
 const Trash = () => {
+  const userId = useSelector(selectUserId);
   const [files, setFiles] = useState([]); // State to store files in the trash
 
   useEffect(() => {
-    // Subscribe to authentication changes and fetch trash files for the user
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // Subscribe to trash file updates and set them in state
-        const unsubscribeFiles = getTrashFiles(user.uid, setFiles);
-
-        // Cleanup the user subscription when the component unmounts
-        return () => {
-          unsubscribeFiles();
-        };
-      }
-    });
-
-    // Cleanup the user authentication subscription when the component unmounts
-    return () => unsubscribe();
-  }, []);
+    const unsubscribeFiles = getTrashFiles(userId, setFiles);
+    return () => unsubscribeFiles();
+  }, [userId]);
 
   return (
     <RecentContainer>

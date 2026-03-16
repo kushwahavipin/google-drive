@@ -2,34 +2,24 @@ import React, { Suspense, lazy, useEffect, useState } from "react";
 import styled from "styled-components";
 import PageHeader from "../common/PageHeader";
 import { getFilesForUser } from "../common/firebaseApi";
-import { auth } from "../../firebase";
 import LoaderContainer from "../loaders/LoaderContainer";
 import { delayInRender } from "../common/common";
+import { useSelector } from "react-redux";
+import { selectUserId } from "../../store/UserSlice";
 const FilesList = lazy(() => delayInRender(import("../common/FilesList")));
 
 // Recent component displays recently edited or added files
 const Recent = () => {
+  const userId = useSelector(selectUserId);
   const [files, setFiles] = useState([]);
 
   useEffect(() => {
-    // Fetch recent files for the current user
-    const fetchData = async () => {
-      const user = auth.currentUser;
-      if (user) {
-        // Subscribe to file updates and set them in state
-        const unsubscribeFiles = await getFilesForUser(user.uid, (newFiles) => {
-          setFiles(newFiles);
-        });
-        // Cleanup the user subscription when the component unmounts
-        return () => {
-          unsubscribeFiles();
-        };
-      }
-    };
+    const unsubscribeFiles = getFilesForUser(userId, (newFiles) => {
+      setFiles(newFiles);
+    });
 
-    // Fetch data when the component mounts
-    fetchData();
-  }, []);
+    return () => unsubscribeFiles();
+  }, [userId]);
 
   return (
     <RecentContainer>

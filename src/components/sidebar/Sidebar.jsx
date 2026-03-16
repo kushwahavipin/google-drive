@@ -2,25 +2,28 @@
 
 import React, { useState } from "react";
 import styled from "styled-components";
-import { db, storage, auth } from "../../firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { useSelector } from "react-redux";
 import { selectSidebarBool } from "../../store/BoolSlice";
+import { selectUserId } from "../../store/UserSlice";
 import FileUploadModal from "./FileUploadModal";
 import AddFile from "./AddFile";
 import SidebarTabs from "./SidebarTabs";
 import { toast } from "react-toastify";
+import { request } from "../../services/api";
+import { useSearchParams } from "react-router-dom";
 
 /**
  * Sidebar component for managing file uploads and displaying tabs.
  * @returns {JSX.Element} - Sidebar component.
  */
 const Sidebar = () => {
+  const [searchParams] = useSearchParams();
+  const currentFolderId = searchParams.get("folder") || null;
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [file, setFile] = useState(null);
   const sidebarBool = useSelector(selectSidebarBool);
+  const userId = useSelector(selectUserId);
   const [selectedFile, setSelectedFile] = useState(null);
   /**
    * Handles the selection of a file for upload.
@@ -45,22 +48,20 @@ const Sidebar = () => {
     setUploading(true);
 
     try {
-      const storageRef = ref(storage, `files/${file.name}`);
-      const snapshot = await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(snapshot.ref);
+      if (!file || !userId) {
+        throw new Error("Please login and select a file first.");
+      }
 
-      // Check if snapshot.totalBytes is defined, use 0 if not
-      const size = snapshot.metadata.size || 0;
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("userId", String(userId));
+      if (currentFolderId) {
+        formData.append("folderId", String(currentFolderId));
+      }
 
-      // Associate the file with the authenticated user ID
-      await addDoc(collection(db, "myfiles"), {
-        userId: auth.currentUser.uid,
-        timestamp: serverTimestamp(),
-        filename: file.name,
-        fileURL: url,
-        size: size,
-        contentType: snapshot.metadata.contentType,
-        starred: false,
+      await request("/api/files", {
+        method: "POST",
+        body: formData,
       });
 
       toast.success("File Uploaded Successfully");

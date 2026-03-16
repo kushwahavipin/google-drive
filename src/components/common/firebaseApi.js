@@ -1,66 +1,131 @@
-// firebaseApi.js
-
-import { db } from "../../firebase";
-import {
-  collection,
-  onSnapshot,
-  doc,
-  getDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  addDoc,
-} from "firebase/firestore";
 import { toast } from "react-toastify";
+import { request } from "../../services/api";
 
-// Collection reference for the 'trash' collection
-let trashRef = collection(db, "trash");
+const isOfflineError = (error) =>
+  error?.message?.includes("Backend is offline") ||
+  error?.message?.includes("Failed to fetch");
 
-/**
- * Adds a document to the 'trash' collection
- * @param {Object} object - File data to be added to the 'trash' collection
- */
-export const postTrashCollection = (object) => {
-  addDoc(trashRef, object)
-    .then(() => {})
-    .catch((err) => {
-      console.error(err);
-    });
+const fetchFiles = async (userId, setFiles) => {
+  const rows = await request(`/api/files?userId=${encodeURIComponent(userId)}`);
+  setFiles(rows || []);
 };
 
-/**
- * Retrieves the files from the 'trash' collection for a specific user
- * @param {string} userId - User ID
- * @param {function} setFiles - State setter function for files
- * @returns {function} - Unsubscribe function to clean up the subscription
- */
-const getTrashFiles = (userId, setFiles) => {
-  const filesData = collection(db, "trash");
-  const unsubscribeFiles = onSnapshot(
-    query(filesData, where("userId", "==", userId)),
-    (snapshot) => {
-      setFiles(() => {
-        const fileArr = snapshot.docs
-          .map((doc) => ({
-            id: doc.id,
-            data: doc.data(),
-          }))
-          .sort(
-            (a, b) => b.data.timestamp?.seconds - a.data.timestamp?.seconds
-          );
-        return fileArr;
-      });
+const fetchTrashFiles = async (userId, setFiles) => {
+  const rows = await request(`/api/trash?userId=${encodeURIComponent(userId)}`);
+  setFiles(rows || []);
+};
+
+export const getDriveItems = async (userId, parentId = null) => {
+  if (!userId) {
+    return { folders: [], files: [] };
+  }
+
+  const query = parentId
+    ? `?userId=${encodeURIComponent(userId)}&parentId=${encodeURIComponent(parentId)}`
+    : `?userId=${encodeURIComponent(userId)}`;
+  const response = await request(`/api/drive${query}`);
+  return {
+    folders: response?.folders || [],
+    files: response?.files || [],
+  };
+};
+
+export const getFolderPath = async (userId, folderId) => {
+  if (!userId || !folderId) {
+    return [];
+  }
+  return request(
+    `/api/folders/${encodeURIComponent(folderId)}/path?userId=${encodeURIComponent(userId)}`
+  );
+};
+
+export const createFolder = async (userId, name, parentId = null) => {
+  if (!userId || !name) {
+    throw new Error("userId and folder name are required");
+  }
+
+  return request("/api/folders", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      userId,
+      parentId,
+      name,
+    }),
+  });
+};
+
+export const deleteFolder = async (userId, folderId) => {
+  if (!userId || !folderId) {
+    throw new Error("userId and folderId are required");
+  }
+
+  return request(
+    `/api/folders/${encodeURIComponent(folderId)}?userId=${encodeURIComponent(userId)}`,
+    {
+      method: "DELETE",
     }
   );
-  // Cleanup the files subscription when the component unmounts
-  return unsubscribeFiles;
 };
 
-/**
- * Handles the permanent deletion of a file from the 'trash' collection
- * @param {string} id - Document ID of the file
- */
+export const uploadFolder = async (userId, files, parentId = null) => {
+  if (!userId || !files || files.length === 0) {
+    throw new Error("Please select a folder to upload");
+  }
+
+  const formData = new FormData();
+  const relativePaths = [];
+
+  files.forEach((file) => {
+    formData.append("files", file);
+    relativePaths.push(file.webkitRelativePath || file.name);
+  });
+
+  formData.append("userId", String(userId));
+  if (parentId) {
+    formData.append("parentId", String(parentId));
+  }
+  formData.append("relativePaths", JSON.stringify(relativePaths));
+
+  return request("/api/files/folder", {
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const postTrashCollection = async (object) => {
+  try {
+    await request("/api/trash", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        userId: object.userId,
+        filename: object.filename,
+        fileURL: object.fileURL,
+        size: object.size || 0,
+        contentType: object.contentType || null,
+        starred: Boolean(object.starred),
+      }),
+    });
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const getTrashFiles = (userId, setFiles) => {
+  if (!userId) {
+    setFiles([]);
+    return () => {};
+  }
+
+  fetchTrashFiles(userId, setFiles).catch(() => {});
+  return () => {};
+};
+
 const handleDeleteFromTrash = async (id) => {
   try {
     const confirmed = window.confirm(
@@ -68,11 +133,9 @@ const handleDeleteFromTrash = async (id) => {
     );
 
     if (confirmed) {
-      // Reference to the document in Firestore
-      const docRef = doc(db, "trash", id);
-
-      // Delete the document
-      await deleteDoc(docRef);
+      await request(`/api/trash/${id}`, {
+        method: "DELETE",
+      });
       toast.error("Permanently Deleted");
     }
   } catch (error) {
@@ -80,55 +143,31 @@ const handleDeleteFromTrash = async (id) => {
   }
 };
 
-/**
- * Retrieves the files from the 'myfiles' collection for a specific user
- * @param {string} userId - User ID
- * @param {function} setFiles - State setter function for files
- * @returns {function} - Unsubscribe function to clean up the subscription
- */
 const getFilesForUser = (userId, setFiles) => {
-  const filesData = collection(db, "myfiles");
-  const unsubscribeFiles = onSnapshot(
-    query(filesData, where("userId", "==", userId)),
-    (snapshot) => {
-      setFiles(() => {
-        const fileArr = snapshot.docs
-          .map((doc) => ({
-            id: doc.id,
-            data: doc.data(),
-          }))
-          .sort(
-            (a, b) => b.data.timestamp?.seconds - a.data.timestamp?.seconds
-          );
-        return fileArr;
-      });
-    }
-  );
-  // Cleanup the files subscription when the component unmounts
-  return unsubscribeFiles;
+  if (!userId) {
+    setFiles([]);
+    return () => {};
+  }
+
+  fetchFiles(userId, setFiles).catch(() => {});
+  return () => {};
 };
 
-/**
- * Handles toggling the 'starred' status of a file in the 'myfiles' collection
- * @param {string} id - Document ID of the file
- */
 const handleStarred = async (id) => {
   try {
-    const docRef = doc(db, "myfiles", id);
-    const docSnapshot = await getDoc(docRef);
-    if (docSnapshot.exists()) {
-      const currentStarredStatus = docSnapshot.data().starred || false;
-      if (currentStarredStatus) {
-        toast.error("Removed from starred");
-      } else {
-        toast.success("Added to starred");
-      }
-      await updateDoc(docRef, { starred: !currentStarredStatus });
+    const response = await request(`/api/files/${id}/star`, {
+      method: "PATCH",
+    });
+
+    if (response?.starred) {
+      toast.success("Added to starred");
     } else {
-      console.error("Document does not exist.");
+      toast.error("Removed from starred");
     }
   } catch (error) {
-    console.error("Error updating starred status: ", error);
+    if (!isOfflineError(error)) {
+      console.error("Error updating starred status: ", error);
+    }
   }
 };
 
